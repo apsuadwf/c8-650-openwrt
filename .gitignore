@@ -1,0 +1,34 @@
+# 编译产物
+*.bin
+*.img
+*.gz
+*.zip
+*.tar
+
+# 编译缓存
+*.o
+*.d
+*.ko
+*.mod
+*.mod.c
+*.order
+Module.symvers
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE文件
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
