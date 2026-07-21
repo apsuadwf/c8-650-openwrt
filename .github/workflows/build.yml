@@ -1,5 +1,5 @@
-# C8-650 ImmortalWrt 自动编译
-# 基于GitHub Actions
+# C8-650 OpenWrt 自动编译
+# 基于 GitHub Actions，使用 OpenWrt 官方源码
 
 name: Build C8-650 Firmware
 
@@ -11,22 +11,28 @@ on:
   workflow_dispatch:
 
 env:
-  REPO_URL: https://github.com/immortalwrt/immortalwrt.git
-  REPO_BRANCH: openwrt-23.05
+  REPO_URL: https://git.openwrt.org/openwrt/openwrt.git
+  REPO_BRANCH: main
   CONFIG_FILE: config/.config
-  CUSTOM_FEEDS: feeds.conf.default
   CUSTOM_PACKAGES: luci-apps
   OUTPUT_DIR: bin/targets
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 360
     
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
       
-    - name: Setup Ubuntu
+    - name: Free Disk Space
+      run: |
+        sudo rm -rf /usr/local/lib/android /opt/ghc
+        sudo apt-get clean
+        df -h
+        
+    - name: Setup Build Environment
       run: |
         sudo apt-get update
         sudo apt-get install -y ack antlr3 asciidoc autoconf automake autopoint binutils \
@@ -39,7 +45,7 @@ jobs:
           python3-pip python3-ply qemu-utils rsync scons squashfs-tools \
           subversion swig texinfo uglifyjs unzip vim wget xmlto xxd zlib1g-dev
           
-    - name: Clone Source
+    - name: Clone Source Code
       run: |
         git clone --depth 1 -b ${{ env.REPO_BRANCH }} ${{ env.REPO_URL }} openwrt
         cd openwrt
@@ -48,12 +54,14 @@ jobs:
         
     - name: Copy Custom Packages
       run: |
-        cp -r ${{ env.CUSTOM_PACKAGES }}/* openwrt/package/
-        cd openwrt
-        ./scripts/feeds update -a
-        ./scripts/feeds install -a
+        if [ -d "${{ env.CUSTOM_PACKAGES }}" ]; then
+          cp -r ${{ env.CUSTOM_PACKAGES }}/* openwrt/package/
+          cd openwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+        fi
         
-    - name: Load Config
+    - name: Load Configuration
       run: |
         cp ${{ env.CONFIG_FILE }} openwrt/.config
         cd openwrt
@@ -62,35 +70,42 @@ jobs:
     - name: Download Packages
       run: |
         cd openwrt
-        make download -j8
+        make download -j$(nproc)
         
     - name: Build Firmware
       run: |
         cd openwrt
-        make -j$(nproc) V=s
+        make -j$(nproc) || make -j1 V=s
         
-    - name: Upload Firmware
-      uses: actions/upload-artifact@v3
+    - name: Upload Firmware Artifact
+      uses: actions/upload-artifact@v4
+      if: success()
       with:
-        name: c8-650-firmware-${{ github.sha }}
+        name: OpenWrt-C8-650-${{ github.sha }}
         path: openwrt/${{ env.OUTPUT_DIR }}/*
         
+    - name: Generate Release Tag
+      id: tag
+      if: success() && github.event_name == 'push'
+      run: |
+        echo "release_tag=C8-650-$(date +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+        
     - name: Create Release
-      if: github.event_name == 'push' && github.ref == 'refs/heads/master'
       uses: softprops/action-gh-release@v1
+      if: success() && github.event_name == 'push'
       with:
         files: openwrt/${{ env.OUTPUT_DIR }}/*
-        tag_name: firmware-${{ github.sha }}
-        name: C8-650 Firmware ${{ github.sha }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        name: C8-650 Firmware ${{ steps.tag.outputs.release_tag }}
         body: |
-          ## C8-650 ImmortalWrt 固件
+          ## C8-650 OpenWrt 固件
           
-          基于 ImmortalWrt 23.05 编译
+          基于 OpenWrt 官方源码编译，支持 NRadio C8-668GL/C8-650
           
           ### 设备信息
-          - 设备: 鲲鹏无限 C8-650
-          - SoC: MediaTek MT7981
-          - 5G模块: Quectel RM500U
+          - 设备: 鲲鹏无限 C8-650 / C8-668
+          - SoC: MediaTek MT7981 (Filogic 830)
+          - 5G模块: Quectel RM500U / RM500Q
           
           ### 使用方法
           1. 下载固件文件
@@ -103,3 +118,8 @@ jobs:
           - 刷入后默认IP: 192.168.1.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Notify Failure
+      if: failure()
+      run: |
+        echo "::error::Build failed! Check the logs above for details."
