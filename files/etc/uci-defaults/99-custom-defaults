@@ -1,0 +1,10 @@
+#!/bin/sh
+# 修改默认LAN IP为 192.168.66.1
+uci set network.lan.ipaddr='192.168.66.1'
+uci commit network
+
+# 设置默认主机名
+uci set system.@system[0].hostname='C8-650'
+uci commit system
+
+exit 0

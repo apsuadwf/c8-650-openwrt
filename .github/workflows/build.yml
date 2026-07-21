@@ -15,6 +15,7 @@ env:
   REPO_BRANCH: main
   CONFIG_FILE: config/.config
   CUSTOM_PACKAGES: luci-apps
+  CUSTOM_FILES: files
   OUTPUT_DIR: bin/targets
 
 jobs:
@@ -59,6 +60,14 @@ jobs:
           cd openwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
+        fi
+        
+    - name: Copy Custom Files
+      run: |
+        if [ -d "${{ env.CUSTOM_FILES }}" ]; then
+          cp -r ${{ env.CUSTOM_FILES }}/* openwrt/
+          echo "Custom files copied:"
+          find openwrt/files -type f 2>/dev/null || echo "No custom files"
         fi
         
     - name: Load Configuration
@@ -107,15 +116,21 @@ jobs:
           - SoC: MediaTek MT7981 (Filogic 830)
           - 5G模块: Quectel RM500U / RM500Q
           
+          ### 默认配置
+          - **默认IP**: 192.168.66.1
+          - **用户名**: root
+          - **密码**: 无（首次登录需设置）
+          - **主机名**: C8-650
+          
           ### 使用方法
           1. 下载固件文件
           2. 通过SSH或U-Boot刷入
-          3. 首次启动配置WiFi和网络
+          3. 访问 http://192.168.66.1 配置
           
           ### 注意事项
           - 首次刷入会清除所有数据
           - 建议备份原有配置
-          - 刷入后默认IP: 192.168.1.1
+          - 刷入后默认IP: 192.168.66.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         
