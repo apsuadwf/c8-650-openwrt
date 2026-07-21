@@ -133,6 +133,13 @@ jobs:
           - 刷入后默认IP: 192.168.66.1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      continue-on-error: true
+        
+    - name: Notify Success
+      if: success()
+      run: |
+        echo "✅ Build successful!"
+        echo "Firmware is available in the Artifacts section."
         
     - name: Notify Failure
       if: failure()
