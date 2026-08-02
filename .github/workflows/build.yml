@@ -65,7 +65,7 @@ jobs:
     - name: Copy Custom Files
       run: |
         if [ -d "${{ env.CUSTOM_FILES }}" ]; then
-          cp -r ${{ env.CUSTOM_FILES }}/* openwrt/
+          cp -r ${{ env.CUSTOM_FILES }} openwrt/files
           echo "Custom files copied:"
           find openwrt/files -type f 2>/dev/null || echo "No custom files"
         fi
